@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carrying Capacity Lab</title>
+<meta name="description" content="An interactive island simulation for Grade 10 Science: discover how food, water, shelter and mates set an ecosystem's carrying capacity, and why population growth slows near it.">
+<meta name="theme-color" content="#07121a">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A6%8C%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07121a; --panel:#0f2230; --panel2:#132b3b; --line:#23475e;
+  --ink:#eaf4f8; --muted:#9bb9c9;
+  --food:#86e06f; --water:#4cc9f0; --shelter:#f6a85c; --mate:#ff82bd;
+  --gold:#ffd166; --danger:#ff6b6b; --violet:#b79cff;
+  --radius:16px;
+  --font:'Bricolage Grotesque',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+body{margin:0;font-family:var(--font);color:var(--ink);line-height:1.5;
+  background:radial-gradient(1100px 520px at 85% -10%,#14405a 0%,transparent 60%),radial-gradient(800px 400px at -10% 10%,#103a2e 0%,transparent 60%),var(--bg);
+  min-height:100vh}
+h1,h2,h3{margin:0;line-height:1.15}
+button{font:inherit;color:inherit;cursor:pointer}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.skip{position:absolute;left:-999px;top:8px;background:var(--gold);color:#000;padding:8px 12px;border-radius:8px;z-index:100}
+.skip:focus{left:8px}
+:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.mono{font-family:var(--mono)}
+
+/* header */
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px clamp(14px,3vw,32px);max-width:1400px;margin:0 auto}
+.brand{display:flex;align-items:center;gap:14px}
+.logo{font-size:34px;filter:drop-shadow(0 4px 12px #0008)}
+.brand h1{font-size:clamp(20px,3.2vw,30px);font-weight:800;letter-spacing:-.02em}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:9px 14px;font-weight:600;transition:transform .12s,background .12s,border-color .12s}
+.btn:hover{background:#18354a;border-color:#2f6283}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:linear-gradient(180deg,#ffd978,#ffc247);color:#201600;border-color:#ffd978}
+.btn.primary:hover{background:linear-gradient(180deg,#ffe296,#ffcd63)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+
+/* layout */
+.grid{display:grid;grid-template-columns:350px minmax(0,1fr);gap:20px;padding:0 clamp(14px,3vw,32px) 24px;max-width:1400px;margin:0 auto}
+.panel{background:linear-gradient(180deg,var(--panel),#0c1c28);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+.panel h2{font-size:15px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin-bottom:12px;font-weight:600}
+.controls{align-self:start}
+@media (max-width:980px){
+  .grid{grid-template-columns:1fr}
+  .stage{order:1}.controls{order:2}
+}
+
+/* sliders */
+.ctl{margin-bottom:16px}
+.ctl-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.ctl label{font-weight:600}
+.ctl output{font-family:var(--mono);font-size:14px;color:var(--c)}
+.ctl .derived{margin:0;font-size:12.5px;color:var(--c);font-family:var(--mono)}
+.ctl .hint{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;cursor:pointer;margin:2px 0}
+input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:99px;background:linear-gradient(90deg,var(--c) var(--fill,50%),#25435a var(--fill,50%))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;border:4px solid var(--c);margin-top:-7px;box-shadow:0 2px 8px #0009}
+input[type=range]::-moz-range-track{height:8px;border-radius:99px;background:#25435a}
+input[type=range]::-moz-range-progress{height:8px;border-radius:99px;background:var(--c)}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#fff;border:4px solid var(--c)}
+
+.events{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.ev{text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:9px 10px;transition:transform .12s,border-color .12s}
+.ev:hover{border-color:var(--gold);transform:translateY(-1px)}
+.ev b{display:block;font-size:14px}
+.ev span{display:block;font-size:11.5px;color:var(--muted);line-height:1.3;margin-top:2px}
+
+/* stage */
+.stage{min-width:0;display:flex;flex-direction:column;gap:14px}
+.chips{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+@media (max-width:700px){.chips{grid-template-columns:repeat(2,1fr)}}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.chip .k{display:block;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.chip .v{display:block;font-family:var(--mono);font-size:clamp(18px,2.4vw,26px);font-weight:600;margin-top:2px}
+.scene{position:relative;border-radius:var(--radius);overflow:hidden;border:1px solid var(--line);background:#08334d}
+#island{display:block;width:100%;aspect-ratio:1000/620}
+.eventbar{position:absolute;left:10px;top:10px;display:flex;gap:6px;flex-wrap:wrap;pointer-events:none}
+.eventbar span{background:#000a;border:1px solid #fff3;border-radius:99px;padding:3px 10px;font-size:12.5px;backdrop-filter:blur(4px)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--muted);padding:2px 4px}
+.legend i{font-style:normal}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:-1px;margin-right:4px}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.seg label{padding:8px 12px;cursor:pointer;font-weight:600;font-size:14px;background:var(--panel2)}
+.seg input{position:absolute;opacity:0}
+.seg input:checked+span{color:#201600}
+.seg label:has(input:checked){background:var(--gold);color:#201600}
+.seg label:has(input:focus-visible){outline:2px solid #fff;outline-offset:-3px}
+.pulse{animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 #ffd16688}50%{box-shadow:0 0 0 10px #ffd16600}}
+.spacer{flex:1}
+
+.predict{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);border:1px dashed #4d7b97;border-radius:14px;padding:10px 14px}
+.predict label{font-weight:600}
+.predict input[type=number]{width:84px;background:#0a1822;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:7px 9px;font:inherit;font-family:var(--mono)}
+.predict .result{flex-basis:100%;margin:0;color:var(--muted);font-size:14px}
+
+.factors{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+.factors h2{font-size:15px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin-bottom:10px;font-weight:600}
+.frow{display:grid;grid-template-columns:150px minmax(0,1fr) 120px;gap:12px;align-items:center;padding:6px 0}
+@media (max-width:620px){.frow{grid-template-columns:1fr;gap:4px}}
+.fname{font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.badge{font-style:normal;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;background:var(--c);color:#111;border-radius:99px;padding:1px 8px}
+.ftrack{position:relative;height:16px;border-radius:99px;background:#0a1822;border:1px solid var(--line);overflow:visible}
+.fbar{height:100%;border-radius:99px;background:var(--c);opacity:.85;transition:width .35s ease}
+.fmark{position:absolute;top:-4px;width:3px;height:22px;background:#fff;border-radius:2px;box-shadow:0 0 6px #fff8;transition:left .35s ease}
+.fval{font-family:var(--mono);font-size:13px;color:var(--c)}
+.frow.limit .fname{color:var(--c)}
+.note{font-size:12.5px;color:var(--muted);margin:6px 0 0}
+
+.coach{margin:0;background:linear-gradient(90deg,#16384b,#12303f);border-left:4px solid var(--gold);border-radius:12px;padding:12px 16px;font-size:16px;min-height:3.4em}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:900px){.charts{grid-template-columns:1fr}}
+figure{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:12px}
+figcaption{font-size:13px;color:var(--muted);margin-top:6px}
+figcaption strong{color:var(--ink)}
+canvas.chart{display:block;width:100%;aspect-ratio:16/10}
+.lg{display:inline-flex;align-items:center;gap:5px;margin-right:12px;white-space:nowrap}
+.lg::before{content:"";width:16px;height:0;border-top:3px solid var(--c)}
+.lg.dash::before{border-top-style:dashed}
+.lg.dot2::before{border-top-style:dotted}
+.toggles{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;color:var(--muted)}
+.toggles label{cursor:pointer}
+.toggles input{accent-color:var(--gold)}
+
+/* learn */
+.learn{max-width:1400px;margin:0 auto;padding:0 clamp(14px,3vw,32px) 30px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.tab{background:transparent;border:1px solid var(--line);border-radius:99px;padding:9px 18px;font-weight:600;color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--gold);color:#201600;border-color:var(--gold)}
+.count{font-family:var(--mono);font-size:12px;margin-left:6px;opacity:.8}
+.tabpanel{background:linear-gradient(180deg,var(--panel),#0c1c28);border:1px solid var(--line);border-radius:var(--radius);padding:clamp(14px,2.4vw,26px)}
+.tabpanel[hidden]{display:none}
+.missions{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.mission{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:14px;position:relative}
+.mission.done{border-color:var(--gold);background:linear-gradient(180deg,#3a3213,#1f2a22)}
+.mission h3{font-size:16px;display:flex;gap:8px;align-items:center}
+.mission p{margin:6px 0 0;color:var(--muted);font-size:14px}
+.mission .prog{font-family:var(--mono);font-size:12.5px;color:var(--gold);margin-top:6px;display:block}
+.mission .star{position:absolute;right:12px;top:10px;font-size:22px;filter:grayscale(1) opacity(.35)}
+.mission.done .star{filter:none}
+.quiz-q{margin-bottom:22px}
+.quiz-q h3{font-size:17px;margin-bottom:10px}
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.opt:hover:not([disabled]){border-color:var(--gold)}
+.opt.right{background:#173d2b;border-color:var(--food)}
+.opt.wrong{background:#43202a;border-color:var(--danger)}
+.why{margin:8px 0 0;font-size:14px;color:var(--muted)}
+.score{font-size:18px;font-weight:700}
+.sci{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.sci h3{font-size:16px;color:var(--gold);margin-bottom:6px}
+.sci p,.sci li{color:#cfe3ec;font-size:14.5px}
+.sci ul{padding-left:18px;margin:6px 0}
+.eq{font-family:var(--mono);background:#0a1822;border:1px solid var(--line);border-radius:8px;padding:6px 10px;display:inline-block;margin:4px 0;font-size:13.5px;color:#fff}
+footer{max-width:1400px;margin:0 auto;padding:6px clamp(14px,3vw,32px) 40px;color:var(--muted);font-size:13px}
+
+/* dialog & toasts */
+dialog{max-width:560px;width:calc(100% - 32px);background:var(--panel);color:var(--ink);border:1px solid var(--gold);border-radius:20px;padding:26px}
+dialog::backdrop{background:#000b;backdrop-filter:blur(3px)}
+dialog h2{font-size:26px;margin-bottom:8px}
+dialog ol{padding-left:20px}
+dialog li{margin:8px 0}
+#toasts{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;z-index:60;width:min(92vw,520px)}
+.toast{background:#0b1b26ee;border:1px solid var(--gold);border-radius:12px;padding:10px 14px;box-shadow:0 8px 30px #000a;animation:tin .25s ease-out}
+@keyframes tin{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+#confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:70}
+#confetti span{position:absolute;top:28%;width:8px;height:13px;border-radius:2px;animation:fall 1.6s ease-out forwards}
+@keyframes fall{0%{transform:translate(0,0) rotate(0);opacity:1}100%{transform:translate(var(--dx),62vh) rotate(var(--r));opacity:0}}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the simulation</a>
+
+<header class="top">
+  <div class="brand">
+    <span class="logo" aria-hidden="true">🦌</span>
+    <div>
+      <h1>Carrying Capacity Lab</h1>
+      <p>Grade 10 Science · Second Term · Weeks 1–2 · Ecosystem's carrying capacity and population growth</p>
+    </div>
+  </div>
+  <button class="btn" id="btnHelp" type="button">? How it works</button>
+</header>
+
+<noscript><p style="padding:20px">This simulation needs JavaScript. Please enable it and reload.</p></noscript>
+
+<main id="main" class="grid">
+  <!-- CONTROLS -->
+  <section class="panel controls" aria-labelledby="envH">
+    <h2 id="envH">🏝️ Environment</h2>
+    <div id="controls"></div>
+    <button class="btn" id="btnDefaults" type="button" style="width:100%;margin-bottom:18px">↺ Reset sliders to defaults</button>
+    <h2 id="evH">⚡ Events</h2>
+    <div class="events" id="events" role="group" aria-labelledby="evH"></div>
+    <p class="note">Events change the environment for a few months, or the herd itself. Watch which factor becomes the bottleneck.</p>
+  </section>
+
+  <!-- STAGE -->
+  <section class="stage" aria-label="Island simulation and results">
+    <div class="chips" role="group" aria-label="Live readouts">
+      <div class="chip"><span class="k">Month</span><span class="v" id="vMonth">0</span></div>
+      <div class="chip"><span class="k">Herd size N</span><span class="v" id="vN">0</span></div>
+      <div class="chip"><span class="k">Carrying capacity K</span><span class="v" id="vK">0</span></div>
+      <div class="chip"><span class="k">Bottleneck</span><span class="v" id="vLim">Food</span></div>
+      <div class="chip"><span class="k">Births / deaths</span><span class="v" id="vFlow">0 / 0</span></div>
+    </div>
+
+    <div class="scene">
+      <canvas id="island" role="img" aria-label="Island with a herd of deer, food patches, waterholes and thickets. The charts and numbers below describe the same simulation."></canvas>
+      <div class="eventbar" id="eventBar"></div>
+    </div>
+    <div class="legend">
+      <span><i>🌿</i> food patch = 5 meals/month</span>
+      <span><i>💧</i> waterhole = water for 15 deer</span>
+      <span><i>🌳</i> thicket = shelter for 8 deer</span>
+      <span><span class="dot" style="background:#5aa9ff"></span>male</span>
+      <span><span class="dot" style="background:#ff82bd"></span>female</span>
+      <span><span class="dot" style="background:#fff"></span>colored dot above a deer = struggling with the bottleneck</span>
+    </div>
+
+    <div class="toolbar">
+      <button class="btn primary pulse" id="btnPlay" type="button">▶ Play</button>
+      <button class="btn" id="btnStep" type="button">⏭ +1 month</button>
+      <button class="btn" id="btnRestart" type="button">↺ Restart</button>
+      <div class="seg" role="radiogroup" aria-label="Simulation speed">
+        <label><input type="radio" name="speed" value="1" checked><span>1×</span></label>
+        <label><input type="radio" name="speed" value="2"><span>2×</span></label>
+        <label><input type="radio" name="speed" value="4"><span>4×</span></label>
+      </div>
+      <span class="spacer"></span>
+      <button class="btn" id="btnCsv" type="button">⬇ Download data (CSV)</button>
+    </div>
+
+    <div class="predict" id="predict">
+      <label for="guess">🔮 Predict first: how many deer can this island support in the long run?</label>
+      <input type="number" id="guess" min="0" max="300" step="1" inputmode="numeric" placeholder="e.g. 50">
+      <button class="btn" id="btnGuess" type="button">Lock in guess</button>
+      <p class="result" id="guessResult">Make a guess, press Play, and see how close you were. Scientists test predictions the same way.</p>
+    </div>
+
+    <p class="coach" id="coach"></p>
+
+    <div class="factors" aria-labelledby="facH">
+      <h2 id="facH">What limits the herd?</h2>
+      <div id="factors"></div>
+      <p class="note">Bars show how many deer each resource can support. The white tick is today's herd. The shortest bar sets the carrying capacity (Liebig's law of the minimum). Mates work differently: they matter most when the herd is small.</p>
+    </div>
+
+    <div class="charts">
+      <figure>
+        <canvas class="chart" id="cPop" role="img" aria-label="Line chart of herd size over time compared with carrying capacity"></canvas>
+        <figcaption>
+          <span class="lg" style="--c:#ffd166"><strong>Herd N</strong></span>
+          <span class="lg dash" style="--c:#fff"><strong>K</strong></span>
+          <span class="lg dash" style="--c:#86e06f" data-fac>food</span>
+          <span class="lg dash" style="--c:#4cc9f0" data-fac>water</span>
+          <span class="lg dash" style="--c:#f6a85c" data-fac>shelter</span>
+          <span class="lg dot2" style="--c:#b79cff" data-log>logistic model</span>
+          <span class="lg dot2" style="--c:#ff82bd" id="lgGuess" hidden>your guess</span>
+          <br>Look for the S-shape: fast at first, then slowing as N nears K.
+        </figcaption>
+      </figure>
+      <figure>
+        <canvas class="chart" id="cRate" role="img" aria-label="Scatter chart of monthly herd growth against herd size, forming a hump with its peak at half the carrying capacity"></canvas>
+        <figcaption>
+          <span class="lg" style="--c:#ffd166"><strong>Simulation</strong></span>
+          <span class="lg dot2" style="--c:#b79cff" data-log>textbook curve rN(1−N/K)</span>
+          <br>Growth per month peaks at a medium herd, then drops toward zero at K.
+        </figcaption>
+      </figure>
+    </div>
+    <div class="toggles">
+      <label><input type="checkbox" id="tgFac" checked> Show each factor's capacity</label>
+      <label><input type="checkbox" id="tgLog" checked> Show textbook logistic model</label>
+    </div>
+  </section>
+</main>
+
+<section class="learn" aria-labelledby="learnH">
+  <h2 class="sr" id="learnH">Missions, quiz and the science</h2>
+  <div class="tabs" role="tablist" aria-label="Learning panels">
+    <button class="tab" role="tab" id="tab-missions" aria-controls="panel-missions" aria-selected="true" type="button">🏅 Missions <span class="count" id="missionCount">0/6</span></button>
+    <button class="tab" role="tab" id="tab-quiz" aria-controls="panel-quiz" aria-selected="false" tabindex="-1" type="button">🧠 Check understanding</button>
+    <button class="tab" role="tab" id="tab-science" aria-controls="panel-science" aria-selected="false" tabindex="-1" type="button">📐 The science</button>
+  </div>
+
+  <div class="tabpanel" role="tabpanel" id="panel-missions" aria-labelledby="tab-missions">
+    <ol class="missions" id="missionList"></ol>
+    <p class="note">Wasted upgrades so far: <strong id="wasted" class="mono">0</strong>. An upgrade is wasted when you improve a resource that is not the bottleneck.</p>
+  </div>
+
+  <div class="tabpanel" role="tabpanel" id="panel-quiz" aria-labelledby="tab-quiz" hidden>
+    <div id="quiz"></div>
+    <p class="score" id="quizScore" aria-live="polite"></p>
+    <button class="btn" id="btnQuizReset" type="button">↺ Try again</button>
+  </div>
+
+  <div class="tabpanel" role="tabpanel" id="panel-science" aria-labelledby="tab-science" hidden>
+    <div class="sci">
+      <div>
+        <h3>The one big idea</h3>
+        <p>An ecosystem can support only a limited number of individuals of one species. That limit is the <b>carrying capacity (K)</b>. When a population is small, it grows fast. As it approaches K, competition for the scarcest resource slows growth until births and deaths balance.</p>
+        <h3 style="margin-top:14px">Four limiting factors</h3>
+        <ul>
+          <li><b>Food</b>: each deer needs 1 meal per month, so K<sub>food</sub> = meals per month.</li>
+          <li><b>Water</b>: K<sub>water</sub> = waterholes × 15 deer.</li>
+          <li><b>Shelter</b>: K<sub>shelter</sub> = thickets × 8 deer.</li>
+          <li><b>Mates</b>: reproduction needs a male. At low density females struggle to find one, so growth starts slowly.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Equations used in this app</h3>
+        <span class="eq">K = min(K<sub>food</sub>, K<sub>water</sub>, K<sub>shelter</sub>)</span>
+        <p>The scarcest resource is the bottleneck.</p>
+        <span class="eq">P(mate) = 1 − e<sup>−M/h</sup></span>
+        <p>M = males in the herd; h = mate-finding difficulty.</p>
+        <span class="eq">dN/dt = rN(1 − N/K)</span>
+        <p>The textbook logistic model (Verhulst, 1838), drawn as a dotted line. Here r = 0.4 × ½ − 0.02 = 0.18 per month. Growth per month is greatest at N = K/2.</p>
+      </div>
+      <div>
+        <h3>How the simulation works</h3>
+        <p>Every month, each deer independently gets "enough" with probability <span class="mono">s = 1 / (1 + (N/K)<sup>4</sup>)</span>. Deer that get enough die with probability 2%, and females among them have a 40% chance × P(mate) of a fawn. Deer that struggle die with probability 22% and do not breed.</p>
+        <p><b>Honest note:</b> the shape of <i>s</i> is a modeling assumption that represents competition. The species values are invented for teaching. Real populations also change with seasons, predators and disease.</p>
+      </div>
+      <div>
+        <h3>Connect it to the Philippines</h3>
+        <ul>
+          <li><b>Fish catch limits</b> in coastal waters keep catches from exceeding what the fish population can regrow.</li>
+          <li><b>Community water supply</b> sets how many households a barangay can sustain.</li>
+          <li><b>Land use</b>: forests, farms and settlements compete for the same land and resources.</li>
+        </ul>
+        <h3 style="margin-top:14px">Learning competencies</h3>
+        <ul>
+          <li>Discuss the factors that limit the ecosystem's carrying capacity, such as adequate food, shelter, water and mates.</li>
+          <li>Explain that the ecosystem's population growth slows down as it gets closer to the carrying capacity.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>Built for Grade 10 Science, Second Term, Weeks 1–2. Runs entirely in your browser; no data leaves your device. Mission progress is saved locally.</footer>
+
+<dialog id="intro" aria-labelledby="introH">
+  <h2 id="introH">🌴 Welcome, ranger!</h2>
+  <p>A herd of Visayan spotted deer has just been released on a fictional island. <b>How many deer can the island support, and what decides that?</b></p>
+  <ol>
+    <li><b>Predict</b> the long-run herd size (optional, but scientists always do).</li>
+    <li><b>Press Play</b> and watch the herd and the graphs. Notice when growth speeds up and when it slows.</li>
+    <li><b>Change the island</b>: food, water, shelter, mates. Trigger a typhoon or drought. Find the bottleneck.</li>
+    <li><b>Earn all 6 stars</b> in the Missions tab, then test yourself with the quiz.</li>
+  </ol>
+  <button class="btn primary" id="btnStart" type="button" style="width:100%;margin-top:10px">Start exploring</button>
+</dialog>
+
+<div id="toasts" role="status" aria-live="polite"></div>
+<div id="confetti" aria-hidden="true"></div>
+<div class="sr" id="sr" aria-live="polite"></div>
+
+<script>
+'use strict';
+
+/* ===================================================================
+   MODEL: pure functions, no DOM. (Also exercised by headless tests.)
+   =================================================================== */
+// --- MODEL ---
+const CAP = { perPond: 15, perThicket: 8 };          // deer supported per waterhole / thicket
+const RULES = {
+  mortality: 0.02,    // monthly death chance for a deer that gets enough
+  stressDeath: 0.20,  // extra monthly death chance for a deer that struggles
+  birth: 0.40,        // fawn chance per female that gets enough, before the mate factor
+  steepness: 4,       // sharpness of the competition curve s(N/K)
+  maxPop: 300         // hard cap so the page stays fast
+};
+const R_INTRINSIC = RULES.birth * 0.5 - RULES.mortality; // 0.18 per month
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+/** How many deer each resource can support (m = event multipliers). */
+function supplies(p, m) {
+  return {
+    food: p.food * m.food,
+    water: p.ponds * CAP.perPond * m.water,
+    shelter: p.thickets * CAP.perThicket * m.shelter
+  };
+}
+/** Liebig's law of the minimum: the scarcest resource sets K. Ties go to food. */
+function capacity(sup) {
+  let key = 'food', K = sup.food;
+  if (sup.water < K) { key = 'water'; K = sup.water; }
+  if (sup.shelter < K) { key = 'shelter'; K = sup.shelter; }
+  return { K, key };
+}
+/** Chance an individual gets enough of the scarcest resource this month. */
+function successChance(N, K) {
+  if (K <= 0) return 0;
+  if (N <= 0) return 1;
+  return 1 / (1 + Math.pow(N / K, RULES.steepness));
+}
+/** Chance a female finds a mate in a month: 1 - e^(-M/h). */
+function mateChance(males, h) {
+  return males > 0 ? 1 - Math.exp(-males / Math.max(h, 0.1)) : 0;
+}
+/** Advance one month. Mutates `ok` on animals; returns survivors, newborns, dead. */
+function stepHerd(herd, K, h, rng) {
+  const s = successChance(herd.length, K);
+  let males = 0;
+  for (const a of herd) if (a.male) males++;
+  const pm = mateChance(males, h);
+  const survivors = [], newborns = [], dead = [];
+  for (const a of herd) {
+    a.ok = rng() < s;
+    const pDie = RULES.mortality + (a.ok ? 0 : RULES.stressDeath);
+    if (rng() < pDie) { dead.push(a); continue; }
+    survivors.push(a);
+    if (!a.male && a.ok && rng() < RULES.birth * pm) newborns.push({ mother: a, male: rng() < 0.5 });
+  }
+  const room = Math.max(0, RULES.maxPop - survivors.length);
+  if (newborns.length > room) newborns.length = room;
+  return { survivors, newborns, dead, s, pm, males };
+}
+/** One Euler step of dN/dt = rN(1 - N/K), the textbook comparison curve. */
+function logisticNext(n, K) {
+  if (K <= 0) return 0;
+  return Math.max(0, n + R_INTRINSIC * n * (1 - n / K));
+}
+// --- END MODEL ---
+
+/* ===================================================================
+   WORLD GEOMETRY (logical 1000 x 620 canvas)
+   =================================================================== */
+const W = 1000, H = 620, CX = 500, CY = 312, RX = 420, RY = 250;
+function radiusFactor(th) { return 1 + 0.07 * Math.sin(3 * th + 1) + 0.05 * Math.sin(5 * th + 2) + 0.03 * Math.sin(9 * th); }
+function islandRho(x, y) {
+  const dx = (x - CX) / RX, dy = (y - CY) / RY;
+  return Math.hypot(dx, dy) / radiusFactor(Math.atan2(dy, dx));
+}
+function randomInIsland(rng, k) {
+  for (let i = 0; i < 300; i++) {
+    const x = CX + (rng() * 2 - 1) * RX * 1.1, y = CY + (rng() * 2 - 1) * RY * 1.1;
+    if (islandRho(x, y) < k) return { x, y };
+  }
+  return { x: CX, y: CY };
+}
+/** Fixed, seeded spots for resources so the island looks the same every visit. */
+const PLACES = (function () {
+  const rng = mulberry32(20261019);
+  const placed = [];
+  const out = { ponds: [], thickets: [], food: [] };
+  const spec = {
+    ponds:    { n: 10, self: 100, other: 62, rho: 0.72 },
+    thickets: { n: 20, self: 56,  other: 40, rho: 0.80 },
+    food:     { n: 50, self: 42,  other: 34, rho: 0.82 }
+  };
+  for (const kind of ['ponds', 'thickets', 'food']) {
+    const sp = spec[kind];
+    for (let i = 0; i < sp.n; i++) {
+      let pick = null;
+      for (let tries = 0; tries < 800; tries++) {
+        const p = randomInIsland(rng, sp.rho);
+        let ok = true;
+        for (const q of placed) {
+          const need = q.kind === kind ? sp.self : sp.other;
+          if (Math.hypot(p.x - q.x, p.y - q.y) < need * (tries > 500 ? 0.7 : 1)) { ok = false; break; }
+        }
+        pick = p;
+        if (ok) break;
+      }
+      placed.push({ x: pick.x, y: pick.y, kind });
+      out[kind].push({ x: pick.x, y: pick.y });
+    }
+  }
+  return out;
+})();
+
+/* ===================================================================
+   STATE
+   =================================================================== */
+const DEFAULTS = { food: 60, ponds: 6, thickets: 9, mateH: 6, n0: 6 };
+const params = Object.assign({}, DEFAULTS);
+const NAME = { food: 'Food', water: 'Water', shelter: 'Shelter' };
+const ICON = { food: '🌿', water: '💧', shelter: '🌳' };
+const COLOR = { food: '#86e06f', water: '#4cc9f0', shelter: '#f6a85c' };
+const MONTHS_PER_SEC = 4;
+const sim = {
+  t: 0, herd: [], hist: [], log: DEFAULTS.n0, events: [], fx: [],
+  running: false, speed: 1, acc: 0, extinct: false, startN: DEFAULTS.n0,
+  storm: null, balanceRun: 0, wasted: 0, dirty: true,
+  guess: null, guessDone: false
+};
+let lastSettled = Object.assign({}, params);
+const done = new Set();
+const reducedMotion = () => (typeof matchMedia === 'function') && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ===================================================================
+   DOM HELPERS
+   =================================================================== */
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+function h(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const k in (attrs || {})) {
+    if (k === 'class') e.className = attrs[k];
+    else if (k === 'text') e.textContent = attrs[k];
+    else if (k === 'html') e.innerHTML = attrs[k];
+    else e.setAttribute(k, attrs[k]);
+  }
+  for (const c of kids) if (c) e.append(c);
+  return e;
+}
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const fmt = n => Math.round(n).toString();
+let toastTimer = 0;
+function toast(msg) {
+  const box = $('#toasts');
+  const t = h('div', { class: 'toast', text: msg });
+  box.append(t);
+  while (box.children.length > 3) box.firstChild.remove();
+  setTimeout(() => t.remove(), 5200);
+}
+function announce(msg) { $('#sr').textContent = msg; }
+function celebrate() {
+  if (reducedMotion()) return;
+  const layer = $('#confetti'), cols = ['#ffd166', '#86e06f', '#4cc9f0', '#ff82bd', '#b79cff'];
+  for (let i = 0; i < 30; i++) {
+    const s = h('span');
+    s.style.left = (38 + Math.random() * 24) + '%';
+    s.style.setProperty('--dx', ((Math.random() * 2 - 1) * 240) + 'px');
+    s.style.setProperty('--r', ((Math.random() * 720) - 360) + 'deg');
+    s.style.background = cols[i % cols.length];
+    s.style.animationDelay = (Math.random() * 0.2) + 's';
+    layer.append(s);
+    setTimeout(() => s.remove(), 2000);
+  }
+}
+
+/* ===================================================================
+   UI WIRING: controls, events, tabs, quiz, missions
+   =================================================================== */
+const CONTROLS = [
+  { key: 'food', icon: '🌿', label: 'Food supply', unit: 'meals/mo', min: 10, max: 150, step: 5, color: '--food',
+    hint: 'Plants regrow this many meals each month. One deer eats 1 meal per month.',
+    derived: v => `supports up to ${v} deer` },
+  { key: 'ponds', icon: '💧', label: 'Water sources', unit: 'waterholes', min: 0, max: 10, step: 1, color: '--water',
+    hint: 'Each waterhole gives drinking water to 15 deer per month.',
+    derived: v => `supports up to ${v * CAP.perPond} deer` },
+  { key: 'thickets', icon: '🌳', label: 'Shelter', unit: 'thickets', min: 0, max: 20, step: 1, color: '--shelter',
+    hint: 'Each thicket shelters 8 deer from heat, rain and predators.',
+    derived: v => `supports up to ${v * CAP.perThicket} deer` },
+  { key: 'mateH', icon: '💞', label: 'Mate-finding difficulty', unit: 'h', min: 1, max: 30, step: 1, color: '--mate',
+    hint: 'h = number of males that gives a female a 63% chance of finding a mate each month. Higher = harder (dense forest, scattered herd).',
+    derived: v => `with 5 males, a female finds a mate in ${Math.round(mateChance(5, v) * 100)}% of months` },
+  { key: 'n0', icon: '🦌', label: 'Starting herd', unit: 'deer', min: 2, max: 40, step: 1, color: '--gold',
+    hint: 'Takes effect when you press Restart. Always includes 1 male and 1 female.',
+    derived: v => `${v} deer at month 0` }
+];
+
+function buildControls() {
+  const box = $('#controls');
+  for (const c of CONTROLS) {
+    const id = 'c-' + c.key;
+    const out = h('output', { id: 'o-' + c.key, for: id, class: 'mono' });
+    const input = h('input', { type: 'range', id, min: c.min, max: c.max, step: c.step, value: params[c.key] });
+    const wrap = h('div', { class: 'ctl', style: `--c:var(${c.color})` },
+      h('div', { class: 'ctl-head' }, h('label', { for: id, text: `${c.icon} ${c.label}` }), out),
+      input,
+      h('p', { class: 'derived', id: 'd-' + c.key }),
+      h('p', { class: 'hint', text: c.hint }));
+    box.append(wrap);
+    input.addEventListener('input', () => {
+      params[c.key] = +input.value;
+      syncControl(c);
+      sim.dirty = true;
+    });
+    input.addEventListener('change', () => settle(c.key));
+    syncControl(c);
+  }
+}
+function syncControl(c) {
+  const input = $('#c-' + c.key);
+  input.value = params[c.key];
+  const pct = ((params[c.key] - c.min) / (c.max - c.min)) * 100;
+  input.style.setProperty('--fill', pct + '%');
+  $('#o-' + c.key).textContent = `${params[c.key]} ${c.unit}`;
+  $('#d-' + c.key).textContent = '= ' + c.derived(params[c.key]);
+}
+/** After a slider is released, explain what happened to K: the "aha" feedback. */
+function settle(changedKey) {
+  const before = lastSettled, after = Object.assign({}, params);
+  lastSettled = after;
+  const map = { food: 'food', ponds: 'water', thickets: 'shelter' };
+  const fk = map[changedKey];
+  if (!fk || before[changedKey] === after[changedKey]) return;
+  const m = multipliers();
+  const a = capacity(supplies(before, m)), b = capacity(supplies(after, m));
+  const increased = after[changedKey] > before[changedKey];
+  if (Math.abs(a.K - b.K) < 1e-9) {
+    if (increased) {
+      sim.wasted++;
+      $('#wasted').textContent = sim.wasted;
+      toast(`💡 ${NAME[fk]} is not the bottleneck, so K stays at ${fmt(b.K)}. ${NAME[a.key]} is still the scarcest resource.`);
+    } else {
+      toast(`${NAME[fk]} went down, but there is still more than enough: K stays at ${fmt(b.K)} (limited by ${NAME[a.key].toLowerCase()}).`);
+    }
+  } else if (b.K > a.K) {
+    toast(`📈 K rose from ${fmt(a.K)} to ${fmt(b.K)}.` + (b.key !== a.key ? ` Now ${NAME[b.key].toLowerCase()} is the bottleneck.` : ''));
+  } else {
+    toast(`📉 K fell from ${fmt(a.K)} to ${fmt(b.K)}. ${NAME[b.key]} is now the bottleneck.`);
+  }
+}
+
+/* ---- events ---- */
+const EVENT_DEFS = [
+  { id: 'typhoon', icon: '🌀', name: 'Typhoon', desc: 'Shelter −60% for 8 months', months: 8, apply: { shelter: 0.4 } },
+  { id: 'drought', icon: '☀️', name: 'Drought', desc: 'Water −70%, food −40% for 10 months', months: 10, apply: { water: 0.3, food: 0.6 } },
+  { id: 'bloom', icon: '🌧️', name: 'Bumper harvest', desc: 'Food +60% for 8 months', months: 8, apply: { food: 1.6 } },
+  { id: 'release', icon: '🚚', name: 'Release 20 deer', desc: 'Adds 20 new deer at once', instant: true },
+  { id: 'hunt', icon: '🏹', name: 'Illegal hunting', desc: 'Removes 30% of the herd', instant: true }
+];
+function multipliers() {
+  const m = { food: 1, water: 1, shelter: 1 };
+  for (const e of sim.events) for (const k in e.apply) m[k] *= e.apply[k];
+  return m;
+}
+function buildEvents() {
+  const box = $('#events');
+  for (const def of EVENT_DEFS) {
+    const b = h('button', { class: 'ev', type: 'button' }, h('b', { text: `${def.icon} ${def.name}` }), h('span', { text: def.desc }));
+    b.addEventListener('click', () => fireEvent(def));
+    box.append(b);
+  }
+}
+function fireEvent(def) {
+  if (sim.herd.length === 0 && def.id !== 'release') { toast('No deer left. Press Restart, or release some deer.'); return; }
+  if (def.id === 'release') {
+    const n = Math.min(20, RULES.maxPop - sim.herd.length);
+    for (let i = 0; i < n; i++) {
+      const p = randomInIsland(Math.random, 0.7);
+      sim.herd.push(makeAnimal(Math.random() < 0.5, p.x, p.y, true));
+    }
+    sim.extinct = false;
+    toast(`🚚 ${n} deer released. Does the island have room for them?`);
+  } else if (def.id === 'hunt') {
+    const n = Math.ceil(sim.herd.length * 0.3);
+    for (let i = 0; i < n && sim.herd.length; i++) {
+      const idx = Math.floor(Math.random() * sim.herd.length);
+      const [d] = sim.herd.splice(idx, 1);
+      spawnFx(d.x, d.y, '🦌', 1.0, 6);
+    }
+    toast(`🏹 ${n} deer lost. Watch how fast the herd rebounds when it is far below K.`);
+    if (sim.herd.length === 0) { sim.extinct = true; setRunning(false); }
+  } else {
+    sim.events = sim.events.filter(e => e.id !== def.id);
+    sim.events.push({ id: def.id, icon: def.icon, name: def.name, left: def.months, apply: def.apply });
+    if (def.id === 'typhoon' && sim.herd.length >= 30) sim.storm = { t0: sim.t };
+    toast(`${def.icon} ${def.name} for ${def.months} months. ${def.desc}.`);
+  }
+  announce(`${def.name}. Herd is now ${sim.herd.length}.`);
+  sim.dirty = true;
+}
+
+/* ---- missions ---- */
+const MISSIONS = [
+  { id: 'boom', icon: '🌱', title: 'Population boom', text: 'Grow the herd to 50 deer.',
+    progress: r => `${r.N} / 50`, check: r => r.N >= 50 },
+  { id: 'shift', icon: '🔍', title: 'Move the bottleneck', text: 'Make water or shelter, not food, the limiting factor while the herd has 30+ deer.',
+    progress: r => `limit: ${NAME[r.key]} · herd ${r.N} / 30`, check: r => r.key !== 'food' && r.N >= 30 },
+  { id: 'ceiling', icon: '🏔️', title: 'Raise the ceiling', text: 'Lift K to 100 or more and grow the herd past 90. Hint: upgrade the right resources.',
+    progress: r => `K ${fmt(r.K)} / 100 · herd ${r.N} / 90`, check: r => r.K >= 100 && r.N >= 90 },
+  { id: 'storm', icon: '🌀', title: 'Weather the storm', text: 'Trigger a Typhoon with 30+ deer and still have 15+ deer 12 months later.',
+    progress: () => sim.storm ? `storm active · month ${sim.t - sim.storm.t0} / 12` : 'not started', check: () => false },
+  { id: 'lonely', icon: '💞', title: 'Humble beginnings', text: 'Restart with just 2–4 deer and grow the herd to 25. Notice the slow start.',
+    progress: r => `start ${sim.startN} · herd ${r.N} / 25`, check: r => sim.startN <= 4 && r.N >= 25 },
+  { id: 'balance', icon: '⚖️', title: 'Perfect balance', text: 'Keep the herd within ±15% of K (at least 30) for 10 months in a row.',
+    progress: () => `${Math.min(sim.balanceRun, 10)} / 10 months`, check: () => sim.balanceRun >= 10 }
+];
+function loadProgress() {
+  try { (JSON.parse(localStorage.getItem('ccl-missions') || '[]')).forEach(id => done.add(id)); } catch (e) { /* storage blocked: fine */ }
+}
+function saveProgress() {
+  try { localStorage.setItem('ccl-missions', JSON.stringify([...done])); } catch (e) { /* ignore */ }
+}
+function renderMissions() {
+  const ol = $('#missionList');
+  ol.textContent = '';
+  const r = sim.hist[sim.hist.length - 1];
+  for (const m of MISSIONS) {
+    const li = h('li', { class: 'mission' + (done.has(m.id) ? ' done' : ''), 'data-m': m.id },
+      h('span', { class: 'star', 'aria-hidden': 'true', text: '⭐' }),
+      h('h3', { text: `${m.icon} ${m.title}` }),
+      h('p', { text: m.text }),
+      h('span', { class: 'prog mono', text: done.has(m.id) ? 'Complete!' : (r ? m.progress(r) : '') }));
+    li.setAttribute('aria-label', `${m.title}: ${done.has(m.id) ? 'complete' : 'in progress'}`);
+    ol.append(li);
+  }
+  $('#missionCount').textContent = `${done.size}/${MISSIONS.length}`;
+}
+function award(id) {
+  if (done.has(id)) return;
+  done.add(id);
+  saveProgress();
+  const m = MISSIONS.find(x => x.id === id);
+  toast(`🏅 Mission complete: ${m.title}!` + (done.size === MISSIONS.length ? ' All six stars. Excellent fieldwork!' : ''));
+  announce(`Mission complete: ${m.title}.`);
+  celebrate();
+}
+function checkMissions(rec) {
+  const { N, K } = rec;
+  if (K >= 30 && N > 0 && Math.abs(N - K) <= 0.15 * K) sim.balanceRun++; else sim.balanceRun = 0;
+  if (sim.storm && sim.t - sim.storm.t0 >= 12) {
+    if (N >= 15) award('storm');
+    else toast('The herd did not recover from the typhoon. Try raising shelter before the next storm.');
+    sim.storm = null;
+  }
+  for (const m of MISSIONS) if (!done.has(m.id) && m.check(rec)) award(m.id);
+}
+
+/* ---- prediction ---- */
+function lockGuess() {
+  const input = $('#guess');
+  if (sim.guess !== null) { revealGuess(); return; }
+  const v = parseInt(input.value, 10);
+  if (!Number.isFinite(v) || v < 0 || v > 300) { toast('Enter a whole number from 0 to 300.'); input.focus(); return; }
+  sim.guess = v;
+  input.disabled = true;
+  $('#btnGuess').textContent = 'Reveal now';
+  $('#btnGuess').disabled = sim.t < 24;
+  $('#guessResult').textContent = `Locked in: ${v} deer. The result is revealed at month 120, or press Reveal once 24 months have passed.`;
+  $('#lgGuess').hidden = false;
+  sim.dirty = true;
+}
+function revealGuess() {
+  if (sim.guess === null || sim.guessDone || sim.t < 24) return;
+  const win = sim.hist.slice(-12);
+  const avg = win.reduce((s, r) => s + r.N, 0) / win.length;
+  const Know = win[win.length - 1].K;
+  const err = avg > 0 ? Math.abs(sim.guess - avg) / avg : 1;
+  sim.guessDone = true;
+  const msg = err <= 0.1
+    ? `🎯 Spot on! You guessed ${sim.guess}; the herd averaged ${avg.toFixed(0)} over the last 12 months (K = ${fmt(Know)}).`
+    : `You guessed ${sim.guess}; the herd averaged ${avg.toFixed(0)} over the last 12 months (K = ${fmt(Know)}). Hint: find the shortest bar in "What limits the herd?". That sets where the herd levels off.`;
+  $('#guessResult').textContent = msg;
+  $('#btnGuess').disabled = true;
+  announce(msg);
+}
+function checkGuess() {
+  if (sim.guess === null || sim.guessDone) return;
+  $('#btnGuess').disabled = sim.t < 24;
+  if (sim.t >= 120) revealGuess();
+}
+function resetGuess() {
+  sim.guess = null; sim.guessDone = false;
+  const input = $('#guess');
+  input.disabled = false; input.value = '';
+  $('#btnGuess').textContent = 'Lock in guess'; $('#btnGuess').disabled = false;
+  $('#lgGuess').hidden = true;
+  $('#guessResult').textContent = 'Make a guess, press Play, and see how close you were. Scientists test predictions the same way.';
+}
+
+/* ---- tabs ---- */
+function wireTabs() {
+  const tabs = $$('.tab');
+  const show = tab => {
+    for (const t of tabs) {
+      const on = t === tab;
+      t.setAttribute('aria-selected', on);
+      t.tabIndex = on ? 0 : -1;
+      $('#' + t.getAttribute('aria-controls')).hidden = !on;
+    }
+  };
+  tabs.forEach((t, i) => {
+    t.addEventListener('click', () => show(t));
+    t.addEventListener('keydown', e => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      const n = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+      show(n); n.focus();
+    });
+  });
+}
+
+/* ---- quiz ---- */
+const QUIZ = [
+  { q: 'A forest has plenty of food and shelter, but its waterholes start drying up. What happens to the carrying capacity?',
+    a: ['It stays the same because food is plentiful', 'It falls to what the remaining water can support', 'It rises because there is less competition for food', 'It cannot change'], c: 1,
+    why: 'The scarcest resource sets the limit. Extra food and shelter cannot make up for missing water.' },
+  { q: 'A population is far below its carrying capacity and resources are plentiful. What do we expect?',
+    a: ['Fast growth', 'No growth', 'A sudden decline', 'Growth only after a disaster'], c: 0,
+    why: 'With resources to spare, most individuals survive and reproduce, so the population grows quickly.' },
+  { q: 'As a population gets closer to its carrying capacity, its growth…',
+    a: ['speeds up', 'slows down', 'stays constant', 'turns negative immediately'], c: 1,
+    why: 'Competition for food, water and shelter increases, so fewer individuals survive and reproduce. The curve flattens into an S-shape.' },
+  { q: 'A tiny, scattered population grows slowly even though food, water and shelter are abundant. Which factor is most likely limiting?',
+    a: ['Mates', 'Sunlight', 'Soil acidity', 'Ocean currents'], c: 0,
+    why: 'When individuals are few and far apart, finding a mate is hard. Births stay low until density rises.' },
+  { q: 'You double the food supply, but water is the bottleneck. The carrying capacity will…',
+    a: ['roughly double', 'stay about the same', 'drop to zero', 'become unlimited'], c: 1,
+    why: 'K is set by the scarcest resource. Upgrading a resource that is not the bottleneck changes nothing.' },
+  { q: 'Some coastal communities in the Philippines set fish catch limits. How does this connect to carrying capacity?',
+    a: ['It makes the sea bigger', 'It keeps the fish population from being drawn below what it can regrow', 'It removes the need for food in the ecosystem', 'It lets fish live forever'], c: 1,
+    why: 'Catching fewer fish than the population can replace keeps it healthy and sustainable within its environment.' }
+];
+let quizAnswered = 0, quizCorrect = 0;
+function buildQuiz() {
+  const box = $('#quiz');
+  box.textContent = '';
+  quizAnswered = 0; quizCorrect = 0;
+  $('#quizScore').textContent = '';
+  QUIZ.forEach((item, qi) => {
+    const order = item.a.map((_, i) => i).sort(() => Math.random() - 0.5);
+    const why = h('p', { class: 'why', hidden: '' });
+    const opts = h('div', { class: 'opts', role: 'group', 'aria-label': `Answers for question ${qi + 1}` });
+    order.forEach(oi => {
+      const b = h('button', { class: 'opt', type: 'button', text: item.a[oi] });
+      b.addEventListener('click', () => {
+        const right = oi === item.c;
+        $$('.opt', opts).forEach(x => { x.disabled = true; });
+        b.classList.add(right ? 'right' : 'wrong');
+        if (!right) $$('.opt', opts).find(x => x.textContent === item.a[item.c]).classList.add('right');
+        why.hidden = false;
+        why.textContent = (right ? '✅ Correct. ' : '❌ Not quite. ') + item.why;
+        quizAnswered++; if (right) quizCorrect++;
+        if (quizAnswered === QUIZ.length) {
+          $('#quizScore').textContent = `Score: ${quizCorrect} / ${QUIZ.length}` + (quizCorrect === QUIZ.length ? ' 🏆 Perfect!' : quizCorrect >= 4 ? ' 👏 Great work.' : ' Revisit the simulation and try again.');
+          if (quizCorrect === QUIZ.length) celebrate();
+        }
+      });
+      opts.append(b);
+    });
+    box.append(h('div', { class: 'quiz-q' }, h('h3', { text: `${qi + 1}. ${item.q}` }), opts, why));
+  });
+}
+
+/* ===================================================================
+   SIMULATION CONTROL
+   =================================================================== */
+function makeAnimal(male, x, y, born) {
+  return { male, x, y, ang: Math.random() * Math.PI * 2, spd: 12 + Math.random() * 10, ok: true, grow: born ? 0.3 : 1, age: born ? 0 : 9 };
+}
+function spawnFx(x, y, emoji, life, rise) {
+  if (sim.fx.length > 120) sim.fx.shift();
+  sim.fx.push({ x, y, emoji, life, rise, age: 0 });
+}
+function snapshot(sup, cap, res) {
+  const N = sim.herd.length;
+  let males = 0;
+  for (const a of sim.herd) if (a.male) males++;
+  return {
+    t: sim.t, N, Kf: sup.food, Kw: sup.water, Ks: sup.shelter, K: cap.K, key: cap.key, log: sim.log,
+    births: res ? res.newborns.length : 0, deaths: res ? res.dead.length : 0,
+    males, pm: mateChance(males, params.mateH), s: successChance(N, cap.K)
+  };
+}
+function restart() {
+  sim.t = 0; sim.hist = []; sim.events = []; sim.fx = []; sim.extinct = false;
+  sim.storm = null; sim.balanceRun = 0; sim.acc = 0; sim.startN = params.n0;
+  sim.herd = [];
+  for (let i = 0; i < params.n0; i++) {
+    const male = i === 0 ? true : i === 1 ? false : Math.random() < 0.5;
+    const p = randomInIsland(Math.random, 0.7);
+    sim.herd.push(makeAnimal(male, p.x, p.y, false));
+  }
+  sim.log = params.n0;
+  const m = multipliers(), sup = supplies(params, m), cap = capacity(sup);
+  sim.hist.push(snapshot(sup, cap, null));
+  resetGuess();
+  setRunning(false);
+  lastSettled = Object.assign({}, params);
+  announce(`Restarted with ${params.n0} deer. Carrying capacity is ${fmt(cap.K)}, limited by ${NAME[cap.key].toLowerCase()}.`);
+  sim.dirty = true;
+}
+function tick() {
+  if (sim.herd.length === 0) return;
+  const m = multipliers(), sup = supplies(params, m), cap = capacity(sup);
+  const res = stepHerd(sim.herd, cap.K, params.mateH, Math.random);
+  for (const d of res.dead) spawnFx(d.x, d.y, '🦌', 1.0, 6);
+  const next = res.survivors;
+  for (const nb of res.newborns) {
+    next.push(makeAnimal(nb.male, nb.mother.x + (Math.random() - 0.5) * 26, nb.mother.y + (Math.random() - 0.5) * 26, true));
+    spawnFx(nb.mother.x, nb.mother.y - 14, '💗', 1.1, -30);
+  }
+  sim.herd = next;
+  sim.t++;
+  sim.log = logisticNext(sim.log, cap.K);
+  const rec = snapshot(sup, cap, res);
+  sim.hist.push(rec);
+  if (sim.hist.length > 6000) sim.hist.shift();
+  for (const e of sim.events) e.left--;
+  const ended = sim.events.filter(e => e.left <= 0);
+  sim.events = sim.events.filter(e => e.left > 0);
+  ended.forEach(e => toast(`${e.icon} ${e.name} is over.`));
+  checkMissions(rec);
+  checkGuess();
+  if (sim.herd.length === 0) {
+    sim.extinct = true; setRunning(false);
+    toast('💀 The herd has died out. Add food, water, shelter or mates, then Restart.');
+    announce('The herd has died out.');
+  } else if (sim.t % 12 === 0) {
+    announce(`Month ${sim.t}: herd ${sim.herd.length}, carrying capacity ${fmt(cap.K)}, limited by ${NAME[cap.key].toLowerCase()}.`);
+  }
+  sim.dirty = true;
+}
+function setRunning(v) {
+  sim.running = v;
+  const b = $('#btnPlay');
+  b.textContent = v ? '⏸ Pause' : '▶ Play';
+  b.classList.toggle('pulse', !v && sim.t === 0);
+}
+function togglePlay() {
+  if (sim.herd.length === 0) { restart(); setRunning(true); return; }
+  setRunning(!sim.running);
+}
+function downloadCsv() {
+  const rows = ['month,herd,K,K_food,K_water,K_shelter,bottleneck,births,deaths,males,mate_chance,logistic_model'];
+  for (const r of sim.hist) {
+    rows.push([r.t, r.N, r.K.toFixed(1), r.Kf.toFixed(1), r.Kw.toFixed(1), r.Ks.toFixed(1), r.key, r.births, r.deaths, r.males, r.pm.toFixed(3), r.log.toFixed(1)].join(','));
+  }
+  const url = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
+  const a = h('a', { href: url, download: 'carrying-capacity-data.csv' });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* ===================================================================
+   RENDERING: island scene
+   =================================================================== */
+const isl = { canvas: $('#island'), ctx: null, bg: document.createElement('canvas'), sx: 1, cssW: 800 };
+isl.ctx = isl.canvas.getContext('2d');
+
+function islandPath(g, scale) {
+  g.beginPath();
+  for (let th = 0; th <= Math.PI * 2 + 0.05; th += 0.05) {
+    const r = radiusFactor(th) * scale;
+    const x = CX + RX * r * Math.cos(th), y = CY + RY * r * Math.sin(th);
+    if (th === 0) g.moveTo(x, y); else g.lineTo(x, y);
+  }
+  g.closePath();
+}
+function sizeIsland() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const cssW = isl.canvas.clientWidth || 800;
+  const cssH = cssW * H / W;
+  isl.cssW = cssW;
+  isl.canvas.width = Math.round(cssW * dpr);
+  isl.canvas.height = Math.round(cssH * dpr);
+  isl.sx = isl.canvas.width / W;
+  buildBackground();
+  sim.dirty = true;
+}
+function buildBackground() {
+  const c = isl.bg;
+  c.width = isl.canvas.width; c.height = isl.canvas.height;
+  const g = c.getContext('2d');
+  g.setTransform(isl.sx, 0, 0, isl.sx, 0, 0);
+  const sea = g.createLinearGradient(0, 0, 0, H);
+  sea.addColorStop(0, '#0b4a68'); sea.addColorStop(1, '#08334d');
+  g.fillStyle = sea; g.fillRect(0, 0, W, H);
+  g.strokeStyle = 'rgba(255,255,255,0.06)'; g.lineWidth = 2;
+  for (let y = 30; y < H; y += 34) {
+    g.beginPath();
+    for (let x = 0; x <= W; x += 20) {
+      const yy = y + Math.sin(x / 38 + y) * 4;
+      if (x === 0) g.moveTo(x, yy); else g.lineTo(x, yy);
+    }
+    g.stroke();
+  }
+  islandPath(g, 1.14); g.fillStyle = 'rgba(76,201,240,0.16)'; g.fill();
+  islandPath(g, 1.07); g.fillStyle = 'rgba(120,220,240,0.22)'; g.fill();
+  islandPath(g, 1.0); g.fillStyle = '#e8d7a3'; g.fill();
+  islandPath(g, 0.93);
+  const gr = g.createRadialGradient(CX, CY, 40, CX, CY, RX);
+  gr.addColorStop(0, '#2f8153'); gr.addColorStop(1, '#1f5a3a');
+  g.fillStyle = gr; g.fill();
+  const rng = mulberry32(5);
+  for (let i = 0; i < 520; i++) {
+    const p = randomInIsland(rng, 0.9);
+    g.fillStyle = i % 2 ? 'rgba(255,255,255,0.05)' : 'rgba(0,30,10,0.12)';
+    g.beginPath(); g.arc(p.x, p.y, 2 + rng() * 5, 0, Math.PI * 2); g.fill();
+  }
+}
+function updateAnimals(dt) {
+  const slow = reducedMotion() ? 0.4 : 1;
+  for (const a of sim.herd) {
+    a.age += dt;
+    if (a.grow < 1) a.grow = Math.min(1, a.grow + dt * 1.2);
+    a.ang += (Math.random() - 0.5) * 3 * dt;
+    const sp = a.spd * (a.ok ? 1 : 1.5) * dt * slow;
+    const nx = a.x + Math.cos(a.ang) * sp, ny = a.y + Math.sin(a.ang) * sp;
+    if (islandRho(nx, ny) < 0.86) { a.x = nx; a.y = ny; }
+    else a.ang = Math.atan2(CY - a.y, CX - a.x) + (Math.random() - 0.5) * 0.8;
+  }
+  for (const f of sim.fx) f.age += dt;
+  sim.fx = sim.fx.filter(f => f.age < f.life);
+}
+const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+function drawIsland(now) {
+  const ctx = isl.ctx, sx = isl.sx;
+  if (!ctx) return;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(isl.bg, 0, 0);
+  ctx.setTransform(sx, 0, 0, sx, 0, 0);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+  const m = multipliers(), sup = supplies(params, m), cap = capacity(sup);
+  const still = reducedMotion();
+  const pulse = still ? 0.5 : 0.5 + 0.5 * Math.sin(now / 420);
+  const unit = clamp(isl.cssW * 0.026, 14, 28) / sx;      // emoji size in logical px
+
+  // waterholes
+  for (let i = 0; i < params.ponds; i++) {
+    const p = PLACES.ponds[i], k = Math.sqrt(m.water);
+    const rx = 36 * k, ry = 22 * k;
+    ctx.fillStyle = m.water < 1 ? '#8a6a3a' : '#2f9fc4';
+    ctx.beginPath(); ctx.ellipse(p.x, p.y, 40, 25, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#4cc9f0';
+    ctx.beginPath(); ctx.ellipse(p.x, p.y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.5;
+    const rip = still ? 0.6 : (now / 1400 + i * 0.3) % 1;
+    ctx.beginPath(); ctx.ellipse(p.x, p.y, rx * (0.3 + rip * 0.6), ry * (0.3 + rip * 0.6), 0, 0, Math.PI * 2); ctx.stroke();
+    if (cap.key === 'water') haloAt(ctx, p.x, p.y, 46, COLOR.water, pulse);
+  }
+  // thickets
+  const standing = Math.ceil(params.thickets * m.shelter - 1e-9);
+  for (let i = 0; i < params.thickets; i++) {
+    const p = PLACES.thickets[i];
+    ctx.font = `${unit * 1.45}px ${EMOJI_FONT}`;
+    ctx.globalAlpha = i < standing ? 1 : 0.5;
+    ctx.fillText(i < standing ? '🌳' : '🪵', p.x, p.y);
+    ctx.globalAlpha = 1;
+    if (cap.key === 'shelter' && i < standing) haloAt(ctx, p.x, p.y, 26, COLOR.shelter, pulse);
+  }
+  // food patches (1 patch = 5 meals)
+  const patches = Math.min(PLACES.food.length, Math.round(sup.food / 5));
+  for (let i = 0; i < patches; i++) {
+    const p = PLACES.food[i];
+    const sway = still ? 0 : Math.sin(now / 700 + i) * 1.5;
+    ctx.font = `${unit * 1.15}px ${EMOJI_FONT}`;
+    ctx.fillText('🌿', p.x, p.y + sway);
+    if (cap.key === 'food') haloAt(ctx, p.x, p.y, 17, COLOR.food, pulse * 0.8);
+  }
+
+  // deer (back to front)
+  const N = sim.herd.length;
+  sim.herd.sort((a, b) => a.y - b.y);
+  for (const a of sim.herd) {
+    const sz = unit * 1.25 * a.grow;
+    ctx.strokeStyle = a.male ? '#5aa9ff' : '#ff82bd';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.ellipse(a.x, a.y + sz * 0.42, sz * 0.46, sz * 0.15, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.font = `${sz}px ${EMOJI_FONT}`;
+    ctx.fillText('🦌', a.x, a.y);
+    if (!a.ok) {
+      ctx.fillStyle = COLOR[cap.key];
+      ctx.beginPath(); ctx.arc(a.x, a.y - sz * 0.62, Math.max(2.6, sz * 0.13), 0, Math.PI * 2); ctx.fill();
+    }
+    if (a.age < 0.8 && !still) {
+      ctx.strokeStyle = `rgba(255,130,189,${1 - a.age / 0.8})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(a.x, a.y, sz * (0.5 + a.age * 1.2), 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+  // floating effects (hearts, fading deer)
+  for (const f of sim.fx) {
+    const k = f.age / f.life;
+    ctx.globalAlpha = 1 - k;
+    ctx.font = `${unit * (f.emoji === '💗' ? 0.9 : 1.1)}px ${EMOJI_FONT}`;
+    ctx.fillText(f.emoji, f.x, f.y + f.rise * k * (f.emoji === '💗' ? 1 : 0));
+    ctx.globalAlpha = 1;
+  }
+  // weather tint
+  for (const e of sim.events) {
+    if (e.id === 'typhoon') {
+      ctx.fillStyle = 'rgba(10,20,40,0.38)'; ctx.fillRect(0, 0, W, H);
+      if (!still) {
+        ctx.strokeStyle = 'rgba(200,225,255,0.45)'; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (let i = 0; i < 70; i++) {
+          const x = (i * 97 + now * 0.5) % (W + 100) - 50, y = (i * 61 + now * 0.9) % H;
+          ctx.moveTo(x, y); ctx.lineTo(x - 14, y + 26);
+        }
+        ctx.stroke();
+      }
+    } else if (e.id === 'drought') { ctx.fillStyle = 'rgba(255,150,40,0.16)'; ctx.fillRect(0, 0, W, H); }
+    else if (e.id === 'bloom') { ctx.fillStyle = 'rgba(120,255,140,0.09)'; ctx.fillRect(0, 0, W, H); }
+  }
+  if (N === 0) {
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#fff'; ctx.font = `700 34px ${EMOJI_FONT}`;
+    ctx.fillText('🕊️ The herd has died out', W / 2, H / 2 - 12);
+    ctx.font = `20px ${EMOJI_FONT}`;
+    ctx.fillText('Adjust the island and press Play to try again', W / 2, H / 2 + 28);
+  }
+}
+function haloAt(ctx, x, y, r, color, a) {
+  ctx.strokeStyle = color; ctx.globalAlpha = 0.25 + 0.5 * a; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+/* ===================================================================
+   RENDERING: readouts, factors, coach
+   =================================================================== */
+const FACTOR_ROWS = {};
+function buildFactors() {
+  const box = $('#factors');
+  const defs = [
+    ['food', '🌿 Food', '--food'], ['water', '💧 Water', '--water'],
+    ['shelter', '🌳 Shelter', '--shelter'], ['mates', '💞 Mates', '--mate']
+  ];
+  for (const [key, label, col] of defs) {
+    const badge = h('em', { class: 'badge', hidden: '' });
+    const bar = h('div', { class: 'fbar' });
+    const mark = h('div', { class: 'fmark', title: 'Current herd size' });
+    const val = h('div', { class: 'fval' });
+    const row = h('div', { class: 'frow', style: `--c:var(${col})` },
+      h('div', { class: 'fname' }, h('span', { text: label }), badge),
+      h('div', { class: 'ftrack' }, bar, key === 'mates' ? null : mark),
+      val);
+    box.append(row);
+    FACTOR_ROWS[key] = { row, badge, bar, mark, val };
+  }
+}
+function renderFactors(sup, cap, N, last) {
+  const scale = Math.max(180, Math.ceil(N * 1.1));
+  const caps = { food: sup.food, water: sup.water, shelter: sup.shelter };
+  for (const k of ['food', 'water', 'shelter']) {
+    const r = FACTOR_ROWS[k];
+    r.bar.style.width = clamp(caps[k] / scale * 100, 0, 100) + '%';
+    r.mark.style.left = `calc(${clamp(N / scale * 100, 0, 100)}% - 1px)`;
+    r.val.textContent = `${fmt(caps[k])} deer`;
+    const lim = cap.key === k;
+    r.row.classList.toggle('limit', lim);
+    r.badge.hidden = !lim;
+    r.badge.textContent = 'bottleneck';
+  }
+  const males = last ? last.males : 0, pm = mateChance(males, params.mateH);
+  const mr = FACTOR_ROWS.mates;
+  mr.bar.style.width = (pm * 100) + '%';
+  mr.val.textContent = `${Math.round(pm * 100)}% · ${males} male${males === 1 ? '' : 's'}`;
+  const scarce = pm < 0.45 && N > 0 && N < 0.6 * cap.K;
+  mr.row.classList.toggle('limit', scarce);
+  mr.badge.hidden = !scarce;
+  mr.badge.textContent = 'scarce';
+}
+function coachText(cap, N, last) {
+  if (sim.extinct || N === 0) return '💀 The herd died out. Look at the bars above: which resource ran short, or were there too few mates to start with?';
+  if (sim.t === 0) return '👆 Press Play. Before you do, which bar below is shortest? That is your bottleneck, and it decides where the herd levels off.';
+  const name = NAME[cap.key].toLowerCase(), K = cap.K;
+  if (K <= 0) return `⚠️ There is no ${name} left at all, so nearly every deer is struggling. Restore it quickly!`;
+  const ratio = N / K, s = successChance(N, K), pm = mateChance(last.males, params.mateH);
+  if (pm < 0.45 && ratio < 0.6) return `🐾 Slow start: with only ${last.males} male${last.males === 1 ? '' : 's'}, a female has about a ${Math.round(pm * 100)}% chance of finding a mate each month. Mates are the limiting factor right now. Growth will speed up as the herd grows.`;
+  if (ratio < 0.6) return `🚀 Plenty of room! The island could support about ${fmt(K)} deer (limited by ${name}), so almost every deer finds enough and the herd grows fast.`;
+  if (ratio < 0.93) return `🐢 Growth is slowing. The herd is closing in on K ≈ ${fmt(K)}; competition for ${name} means only about ${Math.round(s * 100)}% of deer find enough each month.`;
+  if (ratio <= 1.1) return `⚖️ Balance! Births ≈ deaths near K ≈ ${fmt(K)}. The herd has reached the island's carrying capacity, set by ${name}.`;
+  return `⚠️ Overshoot: ${N} deer but only enough ${name} for ${fmt(K)}. Struggling deer die and breed less, so the herd shrinks back toward K.`;
+}
+function updateUI() {
+  const m = multipliers(), sup = supplies(params, m), cap = capacity(sup);
+  const N = sim.herd.length, last = sim.hist[sim.hist.length - 1];
+  $('#vMonth').textContent = sim.t;
+  $('#vN').textContent = N;
+  $('#vK').textContent = fmt(cap.K);
+  const lim = $('#vLim');
+  lim.textContent = NAME[cap.key];
+  lim.style.color = COLOR[cap.key];
+  $('#vFlow').textContent = `${last.births} / ${last.deaths}`;
+  renderFactors(sup, cap, N, last);
+  $('#coach').textContent = coachText(cap, N, last);
+  $('#eventBar').textContent = '';
+  for (const e of sim.events) $('#eventBar').append(h('span', { text: `${e.icon} ${e.name}: ${e.left} mo left` }));
+  $$('.mission').forEach(li => {
+    const mi = MISSIONS.find(x => x.id === li.dataset.m);
+    if (!done.has(mi.id)) $('.prog', li).textContent = mi.progress(last);
+    else { li.classList.add('done'); $('.prog', li).textContent = 'Complete!'; }
+  });
+  $('#missionCount').textContent = `${done.size}/${MISSIONS.length}`;
+  drawCharts();
+}
+
+/* ===================================================================
+   RENDERING: charts (hand-drawn canvas, no libraries)
+   =================================================================== */
+const cPop = $('#cPop'), cRate = $('#cRate');
+function fit(c) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = c.clientWidth || 500, hh = c.clientHeight || 312;
+  const pw = Math.round(w * dpr), ph = Math.round(hh * dpr);
+  if (c.width !== pw || c.height !== ph) { c.width = pw; c.height = ph; }
+  const ctx = c.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, hh);
+  return { ctx, w, h: hh };
+}
+function niceMax(v) {
+  const mag = Math.pow(10, Math.floor(Math.log10(Math.max(v, 1))));
+  const n = v / mag;
+  for (const c of [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (n <= c) return c * mag;
+  return 10 * mag;
+}
+function niceStep(range, target) {
+  const raw = range / target, mag = Math.pow(10, Math.floor(Math.log10(Math.max(raw, 1e-9))));
+  for (const c of [1, 2, 2.5, 5, 10]) if (raw <= c * mag) return c * mag;
+  return 10 * mag;
+}
+const AX = '#9bb9c9', GRID = 'rgba(155,185,201,0.16)';
+function drawAxes(ctx, w, hh, pad, xmin, xmax, ymin, ymax, xlabel, ylabel) {
+  const X = v => pad.l + (v - xmin) / (xmax - xmin) * (w - pad.l - pad.r);
+  const Y = v => hh - pad.b - (v - ymin) / (ymax - ymin) * (hh - pad.t - pad.b);
+  ctx.font = '11px ' + getComputedStyle(document.body).getPropertyValue('--mono');
+  ctx.fillStyle = AX; ctx.strokeStyle = GRID; ctx.lineWidth = 1;
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  const ys = niceStep(ymax - ymin, 4);
+  for (let v = Math.ceil(ymin / ys) * ys; v <= ymax + 1e-9; v += ys) {
+    ctx.beginPath(); ctx.moveTo(pad.l, Y(v)); ctx.lineTo(w - pad.r, Y(v)); ctx.stroke();
+    ctx.fillText(Math.abs(v) < 1e-9 ? '0' : (+v.toFixed(2)).toString(), pad.l - 6, Y(v));
+  }
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  const xs = niceStep(xmax - xmin, 6);
+  for (let v = Math.ceil(xmin / xs) * xs; v <= xmax + 1e-9; v += xs) {
+    ctx.beginPath(); ctx.moveTo(X(v), pad.t); ctx.lineTo(X(v), hh - pad.b); ctx.stroke();
+    ctx.fillText((+v.toFixed(2)).toString(), X(v), hh - pad.b + 5);
+  }
+  ctx.fillStyle = AX; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+  ctx.fillText(xlabel, w - pad.r, hh - 1);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText(ylabel, pad.l + 4, 1);
+  return { X, Y };
+}
+function drawCharts() { drawPopChart(); drawRateChart(); }
+function drawPopChart() {
+  const { ctx, w, h: hh } = fit(cPop);
+  const pad = { l: 42, r: 12, t: 16, b: 26 };
+  const xmax = Math.max(60, sim.t), xmin = Math.max(0, xmax - 240);
+  const vis = sim.hist.filter(r => r.t >= xmin);
+  const showFac = $('#tgFac').checked, showLog = $('#tgLog').checked;
+  let top = 10;
+  for (const r of vis) top = Math.max(top, r.N, r.K, showLog ? r.log : 0);
+  if (sim.guess !== null) top = Math.max(top, sim.guess);
+  const ymax = niceMax(top * 1.25);
+  const { X, Y } = drawAxes(ctx, w, hh, pad, xmin, xmax, 0, ymax, 'month', 'deer');
+  ctx.save();
+  ctx.beginPath(); ctx.rect(pad.l, pad.t, w - pad.l - pad.r, hh - pad.t - pad.b); ctx.clip();
+  const line = (get, color, lw, dash) => {
+    ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.setLineDash(dash || []);
+    ctx.beginPath();
+    vis.forEach((r, i) => { const x = X(r.t), y = Y(get(r)); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+  if (showFac) { line(r => r.Kf, COLOR.food, 1.5, [5, 4]); line(r => r.Kw, COLOR.water, 1.5, [5, 4]); line(r => r.Ks, COLOR.shelter, 1.5, [5, 4]); }
+  if (showLog) line(r => r.log, '#b79cff', 2, [2, 4]);
+  line(r => r.K, 'rgba(255,255,255,0.9)', 2.2, [8, 5]);
+  line(r => r.N, '#ffd166', 2.8);
+  if (sim.guess !== null) {
+    ctx.strokeStyle = '#ff82bd'; ctx.lineWidth = 2; ctx.setLineDash([2, 5]);
+    ctx.beginPath(); ctx.moveTo(pad.l, Y(sim.guess)); ctx.lineTo(w - pad.r, Y(sim.guess)); ctx.stroke(); ctx.setLineDash([]);
+  }
+  ctx.restore();
+  const last = vis[vis.length - 1];
+  if (last) { ctx.fillStyle = '#ffd166'; ctx.beginPath(); ctx.arc(X(last.t), Y(last.N), 4, 0, Math.PI * 2); ctx.fill(); }
+  $$('[data-fac]').forEach(e => { e.style.display = showFac ? '' : 'none'; });
+  $$('[data-log]').forEach(e => { e.style.display = showLog ? '' : 'none'; });
+}
+function drawRateChart() {
+  const { ctx, w, h: hh } = fit(cRate);
+  const pad = { l: 42, r: 12, t: 16, b: 26 };
+  const pts = [];
+  const H = sim.hist;
+  for (let i = 3; i < H.length; i++) {
+    pts.push({ x: (H[i - 3].N + H[i - 2].N + H[i - 1].N) / 3, y: (H[i].N - H[i - 3].N) / 3, i });
+  }
+  const recent = pts.slice(-160);
+  const K = capacity(supplies(params, multipliers())).K;
+  let xtop = Math.max(10, K);
+  for (const p of recent) xtop = Math.max(xtop, p.x);
+  const xmax = niceMax(xtop * 1.1);
+  const peak = R_INTRINSIC * K / 4;
+  let ytop = Math.max(2, peak), ybot = 0;
+  for (const p of recent) { ytop = Math.max(ytop, p.y); ybot = Math.min(ybot, p.y); }
+  const ymax = niceMax(ytop * 1.2), ymin = ybot < 0 ? -niceMax(-ybot * 1.2) : 0;
+  const { X, Y } = drawAxes(ctx, w, hh, pad, 0, xmax, ymin, ymax, 'herd size N (deer)', 'change per month');
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(pad.l, Y(0)); ctx.lineTo(w - pad.r, Y(0)); ctx.stroke();
+  ctx.save();
+  ctx.beginPath(); ctx.rect(pad.l, pad.t, w - pad.l - pad.r, hh - pad.t - pad.b); ctx.clip();
+  if (K > 0) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.setLineDash([8, 5]); ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(X(K), pad.t); ctx.lineTo(X(K), hh - pad.b); ctx.stroke(); ctx.setLineDash([]);
+    if ($('#tgLog').checked) {
+      ctx.strokeStyle = '#b79cff'; ctx.lineWidth = 2; ctx.setLineDash([2, 4]);
+      ctx.beginPath();
+      for (let n = 0; n <= xmax; n += xmax / 80) {
+        const y = R_INTRINSIC * n * (1 - n / K);
+        if (n === 0) ctx.moveTo(X(n), Y(y)); else ctx.lineTo(X(n), Y(y));
+      }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+  recent.forEach((p, k) => {
+    const a = 0.25 + 0.75 * (k / Math.max(1, recent.length - 1));
+    ctx.fillStyle = `rgba(255,209,102,${a})`;
+    ctx.beginPath(); ctx.arc(X(p.x), Y(p.y), k === recent.length - 1 ? 4.5 : 2.8, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.restore();
+  ctx.fillStyle = AX; ctx.font = '11px ' + getComputedStyle(document.body).getPropertyValue('--mono');
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  if (K > 0 && X(K) < w - 40) { ctx.textAlign = 'center'; ctx.fillText('K', X(K), pad.t + 2); }
+}
+
+/* ===================================================================
+   MAIN LOOP & INIT
+   =================================================================== */
+let lastFrame = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastFrame) / 1000);
+  lastFrame = now;
+  if (sim.running) {
+    sim.acc += dt * MONTHS_PER_SEC * sim.speed;
+    let guard = 0;
+    while (sim.acc >= 1 && guard++ < 12 && sim.running) { tick(); sim.acc -= 1; }
+    if (guard >= 12) sim.acc = 0;
+  }
+  updateAnimals(dt);
+  drawIsland(now);
+  if (sim.dirty) { sim.dirty = false; updateUI(); }
+  requestAnimationFrame(frame);
+}
+function openIntro() {
+  const d = $('#intro');
+  if (typeof d.showModal === 'function') { if (!d.open) d.showModal(); } else d.setAttribute('open', '');
+}
+function closeIntro() {
+  const d = $('#intro');
+  if (typeof d.close === 'function') d.close(); else d.removeAttribute('open');
+  try { localStorage.setItem('ccl-seen', '1'); } catch (e) { /* ignore */ }
+  $('#btnPlay').focus();
+}
+function init() {
+  buildControls(); buildEvents(); buildFactors(); wireTabs(); buildQuiz();
+  loadProgress(); renderMissions();
+  sizeIsland();
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { sizeIsland(); }).observe(isl.canvas);
+  else window.addEventListener('resize', sizeIsland);
+  window.addEventListener('resize', () => { sim.dirty = true; });
+  restart();
+
+  $('#btnPlay').addEventListener('click', togglePlay);
+  $('#btnStep').addEventListener('click', () => { setRunning(false); if (sim.herd.length) tick(); });
+  $('#btnRestart').addEventListener('click', restart);
+  $('#btnCsv').addEventListener('click', downloadCsv);
+  $('#btnGuess').addEventListener('click', lockGuess);
+  $('#guess').addEventListener('keydown', e => { if (e.key === 'Enter') lockGuess(); });
+  $('#btnDefaults').addEventListener('click', () => {
+    Object.assign(params, DEFAULTS);
+    CONTROLS.forEach(syncControl);
+    lastSettled = Object.assign({}, params);
+    toast('Sliders reset to defaults. Press Restart to apply the starting herd.');
+    sim.dirty = true;
+  });
+  $$('input[name=speed]').forEach(r => r.addEventListener('change', () => { sim.speed = +r.value; }));
+  $('#tgFac').addEventListener('change', () => { sim.dirty = true; });
+  $('#tgLog').addEventListener('change', () => { sim.dirty = true; });
+  $('#btnQuizReset').addEventListener('click', buildQuiz);
+  $('#btnHelp').addEventListener('click', openIntro);
+  $('#btnStart').addEventListener('click', closeIntro);
+  window.addEventListener('keydown', e => {
+    if (e.code === 'Space' && document.activeElement === document.body) { e.preventDefault(); togglePlay(); }
+  });
+  let seen = false;
+  try { seen = localStorage.getItem('ccl-seen') === '1'; } catch (e) { /* ignore */ }
+  if (!seen) openIntro();
+  requestAnimationFrame(frame);
+}
+init();
+</script>
+</body>
+</html>
